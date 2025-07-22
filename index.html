@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ポモドーロタイマー</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js CDN for advanced audio control -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Custom font for better aesthetics */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* More rounded corners */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 2.5rem; /* Increased padding */
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            border: 1px solid #e2e8f0; /* Subtle border */
+        }
+        .time-display {
+            font-size: 5rem; /* Larger font for time */
+            font-weight: 700;
+            color: #334155; /* Darker text for time */
+            margin-bottom: 2.5rem;
+            letter-spacing: -0.05em; /* Slightly tighter letter spacing */
+        }
+        .status-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #64748b; /* Medium gray for status */
+            margin-bottom: 1.5rem;
+        }
+        .set-display {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 1rem;
+        }
+        .message-box {
+            background-color: #e0f2fe; /* Light blue for messages */
+            color: #0c4a6e; /* Darker blue for message text */
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+            margin-top: 1.5rem;
+            min-height: 4rem; /* Ensure message box has some height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-style: italic;
+            font-size: 1.125rem;
+            line-height: 1.6;
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.5s ease-in-out;
+        }
+        .message-box.visible {
+            opacity: 1;
+        }
+        .input-group {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem; /* Increased gap */
+            margin-bottom: 2rem;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+        .input-group > div {
+            flex: 1; /* Allow items to grow/shrink */
+            min-width: 120px; /* Minimum width for input groups */
+        }
+        .input-group label {
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .input-group input[type="number"],
+        .input-group input[type="range"] {
+            width: 100%; /* Make input fill its container */
+            padding: 0.75rem 1rem;
+            border: 2px solid #cbd5e1; /* Slightly thicker border */
+            border-radius: 0.75rem;
+            text-align: center;
+            font-size: 1.125rem;
+            color: #334155;
+            transition: border-color 0.3s ease;
+        }
+        .input-group input[type="number"]:focus,
+        .input-group input[type="range"]:focus {
+            outline: none;
+            border-color: #3b82f6; /* Blue border on focus */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .input-group input[type="range"] {
+            -webkit-appearance: none; /* Remove default styling */
+            appearance: none;
+            height: 8px;
+            background: #cbd5e1;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            border: none; /* Remove border for range input */
+            padding: 0; /* Remove padding for range input */
+        }
+        .input-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .input-group input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 1rem; /* Gap between buttons */
+            flex-wrap: wrap; /* Allow wrapping */
+        }
+        .button-group button {
+            padding: 0.875rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1.125rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .button-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px -2px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
+        }
+        .button-group button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .button-primary {
+            background-color: #3b82f6; /* Blue */
+            color: white;
+        }
+        .button-primary:hover {
+            background-color: #2563eb; /* Darker blue */
+        }
+        .button-secondary {
+            background-color: #6b7280; /* Gray */
+            color: white;
+        }
+        .button-secondary:hover {
+            background-color: #4b5563; /* Darker gray */
+        }
+        .button-danger {
+            background-color: #ef4444; /* Red */
+            color: white;
+        }
+        .button-danger:hover {
+            background-color: #dc2626; /* Darker red */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .time-display {
+                font-size: 4rem;
+            }
+            .status-text {
+                font-size: 1.25rem;
+            }
+            .input-group {
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+            }
+            .input-group > div {
+                width: 100%;
+            }
+            .button-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .button-group button {
+                width: 100%;
+            }
+            .container {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-text" id="status-text">作業時間</div>
+        <div class="time-display" id="time-display">25:00</div>
+        <div class="set-display" id="set-display">セット: 1 / 4</div>
+
+        <div class="input-group">
+            <div>
+                <label for="work-minutes">作業時間 (分)</label>
+                <input type="number" id="work-minutes" value="25" min="1" max="60">
+            </div>
+            <div>
+                <label for="break-minutes">休憩時間 (分)</label>
+                <input type="number" id="break-minutes" value="5" min="1" max="30">
+            </div>
+            <div>
+                <label for="total-sets">セット数</label>
+                <input type="number" id="total-sets" value="4" min="1" max="10">
+            </div>
+        </div>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="bgm-enable" checked>
+            <label for="bgm-enable">BGMを有効にする</label>
+        </div>
+        <div class="input-group">
+            <div>
+                <label for="bgm-volume">BGM音量</label>
+                <input type="range" id="bgm-volume" min="0" max="100" value="50">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="start-button" class="button-primary">開始</button>
+            <button id="pause-button" class="button-secondary">一時停止</button>
+            <button id="reset-button" class="button-danger">リセット</button>
+        </div>
+
+        <div class="message-box" id="message-box">
+            休憩時間です！少しリラックスしましょう。
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const timeDisplay = document.getElementById('time-display');
+        const statusText = document.getElementById('status-text');
+        const setDisplay = document.getElementById('set-display');
+        const messageBox = document.getElementById('message-box');
+        const startButton = document.getElementById('start-button');
+        const pauseButton = document.getElementById('pause-button');
+        const resetButton = document.getElementById('reset-button');
+        const workMinutesInput = document.getElementById('work-minutes');
+        const breakMinutesInput = document.getElementById('break-minutes');
+        const totalSetsInput = document.getElementById('total-sets');
+        const bgmEnableToggle = document.getElementById('bgm-enable'); // BGM有効/無効トグル
+        const bgmVolumeSlider = document.getElementById('bgm-volume'); // BGM音量スライダー
+
+        // Timer variables
+        let workTime = 25 * 60; // Default work time in seconds
+        let breakTime = 5 * 60; // Default break time in seconds
+        let totalSets = 4; // Default total sets
+        let currentSet = 1; // Current set number
+        let currentTime = workTime;
+        let isWorking = true; // true for work, false for break
+        let timerRunning = false; // true if timer is actively counting down
+        let intervalId; // Stores the setInterval ID
+
+        // Positive messages for break time
+        const positiveMessages = [
+            "よく頑張りました！この休憩でリフレッシュしましょう。",
+            "素晴らしい集中力です！次のセッションも頑張りましょう。",
+            "一歩一歩、目標に近づいています。この休憩を楽しみましょう。",
+            "あなたの努力は必ず報われます。少し休んで、また進みましょう。",
+            "この短い休憩が、あなたの生産性を高めます。",
+            "素晴らしいペースです！この調子でいきましょう。",
+            "自分を褒めてあげましょう。あなたはよくやっています！",
+            "休憩は、より良いスタートのための準備です。",
+            "新しいアイデアが生まれるかもしれません。リラックスして。",
+            "次のステップへ向かうためのエネルギーをチャージしましょう！",
+            "あなたはできる！この休憩で力を蓄えて。",
+            "焦らず、自分のペースで。休憩も大切な時間です。",
+            "小さな一歩が大きな成果につながります。お疲れ様！",
+            "気分転換して、フレッシュな気持ちで戻りましょう。",
+            "あなたの可能性は無限大です。休憩でさらに広げましょう！"
+        ];
+
+        // BGM variables
+        // IMPORTANT: Replace these placeholder URLs with your actual BGM file URLs.
+        // You need to host these audio files yourself (e.g., on GitHub Pages, Netlify, etc.).
+        const bgmTracks = [
+            { name: "集中力アップBGM 1", url: "https://example.com/music/focus_track_1.mp3" }, // Replace with your actual URL
+            { name: "リフレッシュBGM 2", url: "https://example.com/music/refresh_track_2.mp3" }, // Replace with your actual URL
+            { name: "穏やかなBGM 3", url: "https://example.com/music/calm_track_3.mp3" }     // Replace with your actual URL
+        ];
+        let bgmPlayers = [];
+        let currentBGMIndex = -1;
+        // Tone.Volume converts dB to linear gain. -10dB is a good starting point for background.
+        let bgmMasterVolume = new Tone.Volume(-10).toDestination();
+        let bgmEnabled = bgmEnableToggle.checked; // Initial state from checkbox
+
+        /**
+         * Initializes Tone.js players for BGM tracks.
+         * This should be called once when the page loads or when audio is first needed.
+         */
+        async function setupBGMPlayers() {
+            // Ensure Tone.js context is started on user gesture
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+                console.log("Tone.js audio context started.");
+            }
+
+            for (const track of bgmTracks) {
+                const player = new Tone.Player({
+                    url: track.url,
+                    loop: true,
+                    autostart: false,
+                    onerror: (e) => console.error(`BGMの読み込みに失敗しました: ${track.name}`, e)
+                }).connect(bgmMasterVolume); // Connect to master volume
+                bgmPlayers.push(player);
+                // Preload the audio file to avoid delay when starting
+                try {
+                    await player.load(track.url);
+                    console.log(`BGMをプリロードしました: ${track.name}`);
+                } catch (e) {
+                    console.error(`BGMのプリロード中にエラーが発生しました: ${track.name}`, e);
+                }
+            }
+        }
+
+        /**
+         * Starts playing a random BGM track.
+         */
+        function startBGM() {
+            if (!bgmEnabled || bgmPlayers.length === 0) {
+                stopBGM(); // Ensure BGM is stopped if disabled or no tracks
+                return;
+            }
+
+            // Stop current BGM if any is playing
+            if (currentBGMIndex !== -1 && bgmPlayers[currentBGMIndex].state === 'started') {
+                bgmPlayers[currentBGMIndex].stop();
+            }
+
+            // Pick a random track, try to avoid playing the same one twice in a row
+            let newIndex;
+            if (bgmPlayers.length > 1) {
+                do {
+                    newIndex = Math.floor(Math.random() * bgmPlayers.length);
+                } while (newIndex === currentBGMIndex);
+            } else {
+                newIndex = 0; // Only one track, just play that one
+            }
+
+            currentBGMIndex = newIndex;
+            const player = bgmPlayers[currentBGMIndex];
+
+            if (player.loaded) {
+                player.start();
+                console.log(`BGMを再生中: ${bgmTracks[currentBGMIndex].name}`);
+            } else {
+                // Fallback: If not preloaded, try to load and play on demand
+                console.warn(`BGM ${bgmTracks[currentBGMIndex].name} がプリロードされていません。オンデマンドで読み込みを試みます。`);
+                player.load(bgmTracks[currentBGMIndex].url).then(() => {
+                    player.start();
+                    console.log(`遅延読み込み後にBGMを再生: ${bgmTracks[currentBGMIndex].name}`);
+                }).catch(e => console.error("BGMのオンデマンド読み込みに失敗しました:", e));
+            }
+        }
+
+        /**
+         * Stops the currently playing BGM track.
+         */
+        function stopBGM() {
+            if (currentBGMIndex !== -1 && bgmPlayers[currentBGMIndex].state === 'started') {
+                bgmPlayers[currentBGMIndex].stop();
+                console.log("BGMを停止しました。");
+            }
+        }
+
+        /**
+         * Updates the time and set display on the screen.
+         */
+        function updateDisplay() {
+            const minutes = Math.floor(currentTime / 60);
+            const seconds = currentTime % 60;
+            timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            setDisplay.textContent = `セット: ${currentSet} / ${totalSets}`;
+        }
+
+        /**
+         * Displays a random positive message in the message box.
+         */
+        function displayRandomMessage() {
+            const randomIndex = Math.floor(Math.random() * positiveMessages.length);
+            messageBox.textContent = positiveMessages[randomIndex];
+            messageBox.classList.add('visible'); // Make message box visible
+        }
+
+        /**
+         * Hides the message box.
+         */
+        function hideMessage() {
+            messageBox.classList.remove('visible'); // Hide message box
+        }
+
+        /**
+         * Plays a simple beep sound.
+         */
+        function playBeepSound() {
+            // Ensure Tone.js context is started for beep sound as well
+            if (Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            const synth = new Tone.Synth().toDestination();
+            synth.triggerAttackRelease("C4", "8n"); // C4 note for an 8th note duration
+        }
+
+
+        /**
+         * Starts the Pomodoro timer.
+         */
+        function startTimer() {
+            if (timerRunning) {
+                console.log("タイマーはすでに実行中です。開始要求を無視します。");
+                return; // Prevent starting if already running
+            }
+            if (currentSet > totalSets) {
+                console.log("すべてのセットが完了しました。リセットせずに新しいタイマーを開始することはできません。");
+                return; // All sets done, prevent starting
+            }
+
+            timerRunning = true;
+            // メッセージの非表示はフェーズ切り替え時またはリセット時にのみ行います。
+            // startTimer() の冒頭では hideMessage() を呼び出しません。
+
+            // 作業時間であればBGMを開始
+            if (isWorking && bgmEnabled) {
+                startBGM();
+            }
+
+            intervalId = setInterval(() => {
+                currentTime--;
+                updateDisplay();
+
+                // Play sound for the last 3 seconds (when currentTime is 3, 2, 1)
+                if (currentTime > 0 && currentTime <= 3) {
+                    playBeepSound();
+                }
+
+                if (currentTime <= 0) {
+                    clearInterval(intervalId); // Stop current interval
+                    timerRunning = false; // Timer is no longer running
+
+                    console.log("フェーズが終了しました。isWorking:", isWorking);
+                    if (isWorking) {
+                        // 作業時間終了、休憩時間に切り替え
+                        stopBGM(); // BGMを停止
+                        isWorking = false;
+                        currentTime = breakTime;
+                        statusText.textContent = "休憩時間";
+                        displayRandomMessage(); // 休憩メッセージを表示
+                        startTimer(); // 休憩タイマーを自動開始
+                    } else {
+                        // 休憩時間終了、作業時間に戻るかセットを完了する
+                        isWorking = true;
+                        currentSet++; // 作業-休憩サイクル完了後にセットをインクリメント
+                        hideMessage(); // 休憩メッセージを非表示にする
+
+                        if (currentSet > totalSets) {
+                            // すべてのセットが完了
+                            statusText.textContent = "完了！";
+                            timeDisplay.textContent = "00:00";
+                            setDisplay.textContent = `セット: ${totalSets} / ${totalSets}`; // 最終セット数を表示
+                            console.log("すべてのセットが完了しました！");
+                            stopBGM(); // 完了時にもBGMを停止
+                        } else {
+                            // 次の作業フェーズを開始
+                            currentTime = workTime;
+                            statusText.textContent = "作業時間";
+                            startTimer(); // 次の作業フェーズを自動開始
+                            // BGMはstartTimer()の冒頭でisWorkingがtrueの場合に開始されます
+                        }
+                    }
+                    updateDisplay();
+                }
+            }, 1000); // Update every second
+        }
+
+        /**
+         * Pauses the Pomodoro timer.
+         */
+        function pauseTimer() {
+            if (!timerRunning) {
+                console.log("タイマーは実行されていません。一時停止要求を無視します。");
+                return; // Not running, do nothing
+            }
+            timerRunning = false;
+            clearInterval(intervalId);
+            stopBGM(); // タイマー一時停止時にBGMも停止
+        }
+
+        /**
+         * Resets the Pomodoro timer to its initial state.
+         */
+        function resetTimer() {
+            pauseTimer(); // Stop any running timer and BGM
+            isWorking = true;
+            currentSet = 1; // Reset current set
+            currentTime = workTime;
+            statusText.textContent = "作業時間";
+            hideMessage(); // Hide message on reset
+            updateDisplay();
+            // timerRunning is already false from pauseTimer()
+        }
+
+        // Event Listeners
+        startButton.addEventListener('click', async () => {
+            // Tone.jsのコンテキストをユーザーのジェスチャーで開始
+            if (Tone.context.state !== 'running') {
+                await Tone.start();
+                console.log("Tone.js audio context started by start button.");
+            }
+            hideMessage(); // ユーザーが手動で開始する際にメッセージを非表示にする
+            startTimer();
+        });
+        pauseButton.addEventListener('click', pauseTimer);
+        resetButton.addEventListener('click', resetTimer);
+
+        // Input change listeners
+        workMinutesInput.addEventListener('change', (event) => {
+            const newWorkMinutes = parseInt(event.target.value);
+            if (!isNaN(newWorkMinutes) && newWorkMinutes > 0) {
+                workTime = newWorkMinutes * 60;
+                // Only update currentTime if it's the work phase AND timer is not running
+                if (isWorking && !timerRunning) {
+                    currentTime = workTime;
+                    updateDisplay();
+                }
+            } else {
+                event.target.value = Math.floor(workTime / 60); // Revert to current value if invalid
+            }
+        });
+
+        breakMinutesInput.addEventListener('change', (event) => {
+            const newBreakMinutes = parseInt(event.target.value);
+            if (!isNaN(newBreakMinutes) && newBreakMinutes > 0) {
+                breakTime = newBreakMinutes * 60;
+                // Only update currentTime if it's the break phase AND timer is not running
+                if (!isWorking && !timerRunning) {
+                    currentTime = breakTime;
+                    updateDisplay();
+                }
+            } else {
+                event.target.value = Math.floor(breakTime / 60); // Revert to current value if invalid
+            }
+        });
+
+        totalSetsInput.addEventListener('change', (event) => {
+            const newTotalSets = parseInt(event.target.value);
+            if (!isNaN(newTotalSets) && newTotalSets > 0) {
+                totalSets = newTotalSets;
+                updateDisplay(); // Update set display immediately
+            } else {
+                event.target.value = totalSets; // Revert to current value if invalid
+            }
+        });
+
+        // BGM controls event listeners
+        bgmEnableToggle.addEventListener('change', (event) => {
+            bgmEnabled = event.target.checked;
+            if (bgmEnabled && isWorking && timerRunning) {
+                startBGM(); // BGMが有効になり、作業中でタイマーが動いていれば再生開始
+            } else {
+                stopBGM(); // BGMが無効になったか、作業中でなければ停止
+            }
+        });
+
+        bgmVolumeSlider.addEventListener('input', (event) => {
+            // Convert 0-100 slider value to decibels for Tone.js volume
+            // Range from -40dB (very quiet) to 0dB (full volume)
+            const minDb = -40;
+            const maxDb = 0;
+            const sliderValue = parseInt(event.target.value);
+            const db = minDb + (sliderValue / 100) * (maxDb - minDb);
+            bgmMasterVolume.volume.value = db;
+            console.log("BGM音量を設定:", db, "dB");
+        });
+
+        // Initial display update
+        updateDisplay();
+        // Setup BGM players when the script loads (they won't play until startBGM is called)
+        setupBGMPlayers();
+    </script>
+</body>
+</html>
